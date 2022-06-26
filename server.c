@@ -18,17 +18,16 @@ static unsigned int client_count;
 static unsigned int uid = 1;
 
 typedef struct {
-    struct sockaddr_in addr; /* remote address */
-    int connfd;              /* conn file descriptor */
-    int uid;                 /* unique identifier */
+    struct sockaddr_in addr; 
+    int connfd;              
+    int uid;                 
 } client_t;
 
 client_t* clients[MAX_CLIENTS];
 
 pthread_mutex_t client_mut = PTHREAD_MUTEX_INITIALIZER;
 
-void
-strip_newline(char* s)
+void strip_newline(char* s)
 {
     while (*s != '\0') {
         if (*s == '\r' || *s == '\n') {
@@ -38,9 +37,7 @@ strip_newline(char* s)
     }
 }
 
-/* Add client to list */
-void
-add_client(client_t* cl)
+void add_client(client_t* cl)
 {
     pthread_mutex_lock(&client_mut);
     for (int i = 0; i < MAX_CLIENTS; ++i) {
@@ -52,9 +49,7 @@ add_client(client_t* cl)
     pthread_mutex_unlock(&client_mut);
 }
 
-/* Delete client from list */
-void
-del_client(int uid)
+void del_client(int uid)
 {
     pthread_mutex_lock(&client_mut);
     for (int i = 0; i < MAX_CLIENTS; ++i) {
@@ -68,9 +63,8 @@ del_client(int uid)
     pthread_mutex_unlock(&client_mut);
 }
 
-/* Send message to all clients but the sender */
-void
-send_all_but_self(char* s, int uid)
+
+void send_all_but_self(char* s, int uid)
 {
     pthread_mutex_lock(&client_mut);
     for (int i = 0; i < MAX_CLIENTS; ++i) {
@@ -86,9 +80,8 @@ send_all_but_self(char* s, int uid)
     pthread_mutex_unlock(&client_mut);
 }
 
-/* Send message to single client */
-void
-send_to(char* s, int dest_uid)
+
+void send_to(char* s, int dest_uid)
 {
     pthread_mutex_lock(&client_mut);
     for (int i = 0; i < MAX_CLIENTS; ++i) {
@@ -103,9 +96,7 @@ send_to(char* s, int dest_uid)
     pthread_mutex_unlock(&client_mut);
 }
 
-/* Send message to all clients */
-void
-send_all(char* s)
+void send_all(char* s)
 {
     pthread_mutex_lock(&client_mut);
     for (int i = 0; i < MAX_CLIENTS; ++i) {
@@ -119,14 +110,13 @@ send_all(char* s)
     pthread_mutex_unlock(&client_mut);
 }
 
-void*
-client_handler(void* arg)
+void* client_handler(void* arg)
 {
     char bufout[MAXLINE], bufin[MAXLINE];
     int rlen;
 
     client_count++;
-    // converting arg
+    
     client_t* cli = (client_t*)arg;
     printf("Connected to participant %d \n", cli->uid);
     while (1) {
@@ -138,12 +128,12 @@ client_handler(void* arg)
         bufout[0] = '\0';
         strip_newline(bufin);
 
-        /* Ignore empty buffer */
+        
         if (!strlen(bufin)) {
             printf("recv: %s\n", bufin);
             continue;
         }
-        /* quit option */
+        
         if (bufin[0] == '/') {
             char *command, *param;
             command = strtok(bufin, " ");
@@ -179,30 +169,29 @@ client_handler(void* arg)
             send_all_but_self(bufout, cli->uid);
         }
     }
-    /* Close connection */
+    
     sprintf(bufout, "Participant %d has left\r\n", cli->uid);
     send_all(bufout);
     close(cli->connfd);
 
-    /* Delete client from queue and join thread when leaves */
+    
     del_client(cli->uid);
     printf("Participant %d quit \n", cli->uid);
     free(cli);
     client_count--;
     pthread_detach(pthread_self());
+    return NULL;
 }
 
-int
-main(int argc, char** argv)
-{
-int sockfd, ret,n;
-	 struct sockaddr_in serverAddr;
+int main(int argc, char** argv){
+	int sockfd, ret,n;
+	struct sockaddr_in serverAddr;
 
 	int newSocket;
 	struct sockaddr_in clientAddr;
 
 	socklen_t addr_size;
-	    pthread_t tid;
+        pthread_t tid;
 	char buffer[MAXLINE];
 	pid_t childpid;
 
@@ -216,7 +205,7 @@ int sockfd, ret,n;
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(PORT);
 	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	
+
 
 	if(bind(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr))<0)
 	{
@@ -225,35 +214,34 @@ int sockfd, ret,n;
 	}
 
 	listen(sockfd, MAX_CLIENTS) ;
-	 printf("%s\n","Server running...waiting for connections.");
-	 
+	printf("%s\n","Server running...waiting for connections.");
+ 
 	while(1){
 		newSocket = accept(sockfd, (struct sockaddr*)&clientAddr, &addr_size);
 		if(newSocket < 0)
 		{
 			exit(1);
 		}
+                if ((client_count + 1) == MAX_CLIENTS) {
+                    printf("[-] max clients reached\n");
+                    printf("[-] reject ");
+                    printf("\n");
+                    close(newSocket);
+                    continue;
+                }
 
-			  if ((client_count + 1) == MAX_CLIENTS) {
-            printf("[-] max clients reached\n");
-            printf("[-] reject ");
-            printf("\n");
-            close(newSocket);
-            continue;
+                client_t* cli = (client_t*)malloc(sizeof(client_t));
+                cli->addr = clientAddr;
+                cli->connfd = newSocket;
+                cli->uid = uid++;
+                add_client(cli);
+                
+
+                pthread_create(&tid, NULL, &client_handler, (void*)cli);
+                memset(&clientAddr, '\0', sizeof(clientAddr));
         }
-
-        client_t* cli = (client_t*)malloc(sizeof(client_t));
-        cli->addr = clientAddr;
-        cli->connfd = newSocket;
-        cli->uid = uid++;
-        add_client(cli);
-        pthread_create(&tid, NULL, &client_handler, (void*)cli);
-        memset(&clientAddr, '\0', sizeof(clientAddr));
-        
-
-		}
 	close(newSocket);
-	 close (sockfd);
+	close (sockfd);
 
 	return 0;
 
