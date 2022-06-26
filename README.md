@@ -3,12 +3,16 @@ ________________________________________________________________________________
 A Terminal chat application built in C using the concepts of socket programming and multi-threading. It supports chatting among multiple clients.
 
 ## Compilation     
-`
-g++ server.c -lpthread -o server   
-g++ client.c -lpthread -o client
-`
+```
+g++ server.c -lpthread -o server
+g++ client.c -lpthread -o client 
+```
 
 ## Run Server
-`./server `
+``` 
+./server  
+```
 ## Run Client
-`./client `   
+``` 
+./client 
+```   
